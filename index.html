@@ -1,11 +1,222 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=/jk2/" />
-    <title>Redirecting...</title>
-  </head>
-  <body>
-    <p>Redirecting to <a href="/jk2/">/jk2/</a></p>
-  </body>
+<html>
+<head>
+    <title>Knock Out!</title>
+    <style>
+        body { margin: 0; background: #111; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; cursor: crosshair; }
+        #ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 22px; text-align: center; pointer-events: none; text-shadow: 0 0 8px #0ff; }
+    </style>
+</head>
+<body>
+<div id="ui">Score: <span id="score">0</span> &nbsp;|&nbsp; Level: <span id="level">1</span></div>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const W = canvas.width = 700;
+const H = canvas.height = 700;
+const cx = W / 2, cy = H / 2;
+const ARENA_R = 260;
+const BALL_R = 18;
+const FLICK_FORCE = 22;
+
+let score = 0;
+let level = 1;
+let balls = [];
+let particles = [];
+let mouseX = cx, mouseY = cy;
+let hovered = null;
+
+document.getElementById("score").textContent = score;
+
+canvas.addEventListener("mousemove", e => {
+    const r = canvas.getBoundingClientRect();
+    mouseX = e.clientX - r.left;
+    mouseY = e.clientY - r.top;
+    hovered = balls.find(b => dist(b.x, b.y, mouseX, mouseY) < BALL_R + 6) || null;
+    canvas.style.cursor = hovered ? "pointer" : "crosshair";
+});
+
+canvas.addEventListener("click", e => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const my = e.clientY - r.top;
+    const hit = balls.find(b => dist(b.x, b.y, mx, my) < BALL_R + 6);
+    if (hit) flick(hit, mx, my);
+});
+
+function dist(x1, y1, x2, y2) {
+    return Math.hypot(x2 - x1, y2 - y1);
+}
+
+function flick(ball, fromX, fromY) {
+    // Direction: from click point outward (away from center)
+    const dx = ball.x - cx;
+    const dy = ball.y - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    ball.vx = (dx / len) * FLICK_FORCE;
+    ball.vy = (dy / len) * FLICK_FORCE;
+    ball.flicked = true;
+    spawnParticles(ball.x, ball.y, ball.color);
+}
+
+function spawnParticles(x, y, color) {
+    for (let i = 0; i < 10; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 2 + Math.random() * 4;
+        particles.push({ x, y, vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd, life: 1, color });
+    }
+}
+
+function spawnBall() {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.random() * (ARENA_R - BALL_R - 20);
+    const colors = ["#ff4466","#ffaa00","#00ddff","#88ff44","#cc44ff","#ff8844"];
+    const spd = 1.2 + level * 0.3;
+    const va = Math.random() * Math.PI * 2;
+    balls.push({
+        x: cx + Math.cos(angle) * r,
+        y: cy + Math.sin(angle) * r,
+        vx: Math.cos(va) * spd,
+        vy: Math.sin(va) * spd,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        flicked: false,
+        flash: 0
+    });
+}
+
+function targetCount() { return 4 + level * 2; }
+
+function update() {
+    // Spawn balls up to target
+    while (balls.length < targetCount()) spawnBall();
+
+    balls = balls.filter(ball => {
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        const d = dist(ball.x, ball.y, cx, cy);
+
+        if (ball.flicked) {
+            // Check if it escaped the arena
+            if (d > ARENA_R + BALL_R) {
+                score++;
+                document.getElementById("score").textContent = score;
+                level = Math.floor(score / 8) + 1;
+                document.getElementById("level").textContent = level;
+                spawnParticles(ball.x, ball.y, ball.color);
+                return false; // remove
+            }
+        } else {
+            // Bounce off arena wall
+            if (d + BALL_R > ARENA_R) {
+                const nx = (ball.x - cx) / d;
+                const ny = (ball.y - cy) / d;
+                const dot = ball.vx * nx + ball.vy * ny;
+                ball.vx -= 2 * dot * nx;
+                ball.vy -= 2 * dot * ny;
+                ball.x = cx + nx * (ARENA_R - BALL_R);
+                ball.y = cy + ny * (ARENA_R - BALL_R);
+            }
+        }
+
+        // Dampen flicked balls a tiny bit
+        if (ball.flicked) { ball.vx *= 0.98; ball.vy *= 0.98; }
+
+        if (ball.flash > 0) ball.flash -= 0.05;
+        return true;
+    });
+
+    // Particles
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.04; p.vx *= 0.92; p.vy *= 0.92; });
+    particles = particles.filter(p => p.life > 0);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Background glow
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, ARENA_R);
+    grad.addColorStop(0, "#1a1a2e");
+    grad.addColorStop(1, "#0d0d1a");
+    ctx.beginPath();
+    ctx.arc(cx, cy, ARENA_R, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Arena ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, ARENA_R, 0, Math.PI * 2);
+    ctx.strokeStyle = "#00ffff";
+    ctx.lineWidth = 3;
+    ctx.shadowColor = "#00ffff";
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Dashed target ring hint
+    ctx.save();
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, ARENA_R - 1, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(0,255,255,0.15)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // Particles
+    particles.forEach(p => {
+        ctx.globalAlpha = p.life;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Balls
+    balls.forEach(ball => {
+        const isHov = ball === hovered;
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, BALL_R + (isHov ? 3 : 0), 0, Math.PI * 2);
+        ctx.fillStyle = ball.color;
+        ctx.shadowColor = ball.color;
+        ctx.shadowBlur = isHov ? 20 : 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Arrow hint on hover
+        if (isHov) {
+            const dx = ball.x - cx;
+            const dy = ball.y - cy;
+            const len = Math.hypot(dx, dy) || 1;
+            const ax = ball.x + (dx/len)*28;
+            const ay = ball.y + (dy/len)*28;
+            ctx.beginPath();
+            ctx.moveTo(ball.x + (dx/len)*(BALL_R+4), ball.y + (dy/len)*(BALL_R+4));
+            ctx.lineTo(ax, ay);
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    });
+
+    // Cursor ring
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, 12, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
 </html>
