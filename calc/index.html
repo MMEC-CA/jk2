@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Vanguard Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="calculator">
+        <div class="display">
+            <div id="history" class="history"></div>
+            <div id="current" class="current">0</div>
+        </div>
+        <div class="buttons">
+            <button class="btn op" data-op="clear">AC</button>
+            <button class="btn op" data-op="delete">DEL</button>
+            <button class="btn op" data-op="percent">%</button>
+            <button class="btn op" data-op="/">÷</button>
+            
+            <button class="btn num">7</button>
+            <button class="btn num">8</button>
+            <button class="btn num">9</button>
+            <button class="btn op" data-op="*">×</button>
+            
+            <button class="btn num">4</button>
+            <button class="btn num">5</button>
+            <button class="btn num">6</button>
+            <button class="btn op" data-op="-">-</button>
+            
+            <button class="btn num">1</button>
+            <button class="btn num">2</button>
+            <button class="btn num">3</button>
+            <button class="btn op" data-op="+">+</button>
+            
+            <button class="btn num double">0</button>
+            <button class="btn num">.</button>
+            <button class="btn op equal" data-op="calculate">=</button>
+        </div>
+    </div>
+    <div class="scanlines"></div>
+    <script src="script.js"></script>
+</body>
+</html>
